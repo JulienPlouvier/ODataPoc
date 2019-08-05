@@ -1,21 +1,16 @@
 import React, { Component } from "react";
 import moment from "moment"
 import { withStyles } from "@material-ui/styles";
-import { createStyles, FormControl, InputLabel, Select, MenuItem, Paper, Table, TableHead, TableRow, TableCell, TableBody, Toolbar, AppBar, Button, TextField } from "@material-ui/core";
+import { createStyles, Paper, Table, TableHead, TableRow, TableCell, TableBody, Toolbar, AppBar, Button, Fab } from "@material-ui/core";
+import AddIcon from '@material-ui/icons/Add'
 import { MuiProps, muiOptions } from "../infrastructure/materialUiThemeProvider";
 import { Person, FamilyName } from "./models/Person";
 import { AdressToString } from "./models/Address";
 import { get } from "../infrastructure/api";
-import { operators, buildOdataQueryFilter, OdataWrapper, fields, fieldType, addressFields } from "../infrastructure/odataQueryBuilder";
+import { operators, buildOdataQueryFilter, OdataWrapper, fields, fieldType } from "../infrastructure/odataQueryBuilder";
+import { Operator, Comparator, Filter } from "./models/Filters";
+import QueryLine from "./queryLine";
 
-type Operator = {
-    key: operators,
-    value: string
-}
-type Comparator = {
-    key: any,
-    value: string
-}
 
 const stringOperators: Operator[] = [
     { key: operators.startsWith, value: 'commence par ...' },
@@ -37,23 +32,18 @@ const familyComparators: Comparator[] = [
     { key: FamilyName.Paul, value: 'la famille de Paul' },
 ]
 
-
 interface RepertoireState {
-    Operator: operators
-    Field: string
-    FieldType: fieldType
-    AddressField: addressFields
-    Comparator: string
     DisplayedPeople: Person[]
     OperatorsForField: Operator[]
     ComparatorsForField: Comparator[]
+    Filters: Filter[]
 }
 
 class Repertoire extends Component<MuiProps, RepertoireState> {
 
     constructor(props) {
         super(props);
-        this.state = { Comparator: '', Operator: operators.startsWith, Field: '', DisplayedPeople: [], OperatorsForField: [], ComparatorsForField: [], FieldType: fieldType.string, AddressField: addressFields.Street }
+        this.state = { DisplayedPeople: [], OperatorsForField: [], ComparatorsForField: [], Filters: [] }
     }
 
     async componentDidMount() {
@@ -61,19 +51,26 @@ class Repertoire extends Component<MuiProps, RepertoireState> {
         this.setState({ DisplayedPeople: people.value })
     }
 
-    handleOperatorChange = (newValue): void => {
-        this.setState({ Operator: newValue })
+    handleOperatorChange = (newValue, id): void => {
+        let filters = this.state.Filters
+        filters[id].Operator = newValue
+        this.setState({ Filters: filters })
     }
 
-    handleAddressFieldChange = (newValue): void => {
-        this.setState({ AddressField: newValue })
+    handleAddressFieldChange = (newValue, id): void => {
+        let filters = this.state.Filters
+        filters[id].AdressField = newValue
+        this.setState({ Filters: filters })
     }
 
-    handleComparatorChange = (newValue): void => {
-        this.setState({ Comparator: newValue })
+    handleComparatorChange = (newValue, id): void => {
+        let filters = this.state.Filters
+        filters[id].Comparator = newValue
+        this.setState({ Filters: filters })
     }
 
-    handleFieldChange = (newValue): void => {
+    handleFieldChange = (newValue, id): void => {
+        let filters = this.state.Filters
         let newOperators
         let newComparators: any[] = []
         let newFieldType: fieldType = fieldType.string
@@ -89,22 +86,43 @@ class Repertoire extends Component<MuiProps, RepertoireState> {
             newFieldType = fieldType.family
         }
 
-        this.setState({ Field: newValue, FieldType: newFieldType, OperatorsForField: newOperators, ComparatorsForField: newComparators })
+        filters[id].Field = newValue
+        filters[id].FieldType = newFieldType
+        filters[id].OperatorsForField = newOperators
+        filters[id].ComparatorsForField = newComparators
+
+        this.setState({ Filters: filters })
+    }
+
+    addFilter = () => {
+        let filters = this.state.Filters
+        let newFilter: Filter = {
+            Field: '',
+            FieldType: fieldType.string,
+            Operator: operators.startsWith,
+            OperatorsForField: [],
+            AdressField: '',
+            Comparator: '',
+            ComparatorsForField: [],
+
+        }
+        filters.push(newFilter)
+        this.setState({ Filters: filters })
     }
 
     sendQuery = async () => {
-        if (!this.state.Comparator || !this.state.Field) {
+        if (this.state.Filters.length == 0) {
             console.log(this.state)
             return
         }
-        var query = buildOdataQueryFilter(this.state.Field, this.state.FieldType, this.state.Comparator, this.state.Operator, this.state.AddressField)
+        var query = buildOdataQueryFilter(this.state.Filters)
         var people = await get<OdataWrapper<Person[]>>("Persons" + query)
         this.setState({ DisplayedPeople: people.value })
     }
 
     reset = async () => {
         var people = await get<OdataWrapper<Person[]>>("Persons")
-        this.setState({ DisplayedPeople: people.value })
+        this.setState({ DisplayedPeople: people.value, Filters: [] })
     }
 
     render() {
@@ -118,72 +136,26 @@ class Repertoire extends Component<MuiProps, RepertoireState> {
                     </Toolbar>
                 </AppBar>
                 <Paper className={classes.VerticalContainerMarged}>
-                    <div>
+                    <div className={classes.Fab}>
                         Queries
+                        <Fab color="primary" aria-label="add" onClick={this.addFilter}>
+                            <AddIcon />
+                        </Fab>
                     </div>
-                    <div className={classes.HorizontalContainer}>
-                        <FormControl className={classes.FormControl}>
-                            <InputLabel>Champ</InputLabel>
-                            <Select
-                                value={this.state.Field}
-                                onChange={event => this.handleFieldChange(event.target.value)}
-                                inputProps={{
-                                    name: '',
-                                }}
-                            >
-                                <MenuItem value={fields.Name}>Nom</MenuItem>
-                                <MenuItem value={fields.Birth}>Birthday</MenuItem>
-                                <MenuItem value={fields.Family}>Family of Origin</MenuItem>
-                                <MenuItem value={fields.Address}>Adresses</MenuItem>
-                            </Select>
-                        </FormControl>
-                        {this.state.Field == fields.Address
-                            ? <FormControl className={classes.FormControl}>
-                                <InputLabel>Champ d'addresse</InputLabel>
-                                <Select
-                                    value={this.state.AddressField}
-                                    onChange={event => this.handleAddressFieldChange(event.target.value)}
-                                    inputProps={{
-                                        name: '',
-                                    }}
-                                >
-                                    <MenuItem value={addressFields.City}>Ville</MenuItem>
-                                    <MenuItem value={addressFields.PostalCode}>Code Postal</MenuItem>
-                                    <MenuItem value={addressFields.Street}>Rue</MenuItem>
-                                </Select>
-                            </FormControl>
-                            : null}
-                        <FormControl className={classes.FormControl}>
-                            <InputLabel>Operateur</InputLabel>
-                            <Select
-                                value={this.state.Operator}
-                                onChange={event => this.handleOperatorChange(event.target.value)}
-                                inputProps={{
-                                    name: 'Operateur',
-                                }}
-                            >
-                                {this.state.OperatorsForField.map(x => <MenuItem value={x.key}>{x.value}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-                        {this.state.ComparatorsForField.length > 0
-                            ? <FormControl className={classes.FormControl}>
-                                <InputLabel>Comparateur</InputLabel>
-                                <Select
-                                    value={this.state.Comparator}
-                                    onChange={event => this.handleComparatorChange(event.target.value)}
-                                    inputProps={{
-                                        name: 'Operateur',
-                                    }}
-                                >
-                                    {this.state.ComparatorsForField.map(x => <MenuItem value={x.key}>{x.value}</MenuItem>)}
-                                </Select>
-                            </FormControl>
-                            : <TextField label="Valeur de comparaison"
-                                placeholder="Comparateur"
-                                className={classes.FormControl}
-                                onChange={event => this.handleComparatorChange(event.target.value)} />
-                        }
-                    </div>
+                    {
+                        this.state.Filters.map((x, i) =>
+                            <QueryLine Id={i}
+                                filter={x}
+                                ChangeAddressField={this.handleAddressFieldChange}
+                                ChangeComparator={this.handleComparatorChange}
+                                ChangeField={this.handleFieldChange}
+                                ChangeOperator={this.handleOperatorChange}
+                                classes={this.props.classes}
+                                children={this.props.children}
+                                theme={this.props.theme}
+                            />
+                        )
+                    }
                     <div>
                         <Button variant="contained" color="primary" className={classes.Button} onClick={_ => this.sendQuery()}>
                             Send
@@ -193,6 +165,7 @@ class Repertoire extends Component<MuiProps, RepertoireState> {
                     </Button>
                     </div>
                 </Paper>
+                <p>{'Résultat : ' + people.length + ' personnes trouvées (sur 50 prises aléatoirement)'}</p>
                 <Paper>
                     <Table>
                         <TableHead>
@@ -251,6 +224,12 @@ let styles = theme =>
         },
         Button: {
             margin: '5px 0px 5px 0px'
+        },
+        Fab: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            minWidth: '200px'
         }
     })
 

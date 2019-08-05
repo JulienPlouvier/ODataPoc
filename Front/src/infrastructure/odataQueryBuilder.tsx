@@ -1,4 +1,5 @@
 import moment from "moment"
+import { Filter } from "../app/models/Filters";
 
 export type OdataWrapper<T> = {
     ['@odata.context']: string
@@ -53,7 +54,6 @@ function buildStringQuery(field: string, comparator: string, operator: operators
 }
 
 function buildDateQuery(field: string, comparator: string, operator: operators) {
-    console.log(operator)
     var stringQuery = field
     var date = moment(comparator).format('YYYY-MM-DDTHH:mm:ss')
     switch (operator) {
@@ -84,30 +84,35 @@ function buildFamilyQuery(field: string, comparator: string, operator: operators
     return stringQuery + comparator
 }
 
-export function buildOdataQueryFilter(field: string, type: fieldType, comparator: string, operator: operators, addressField?: addressFields): string {
-
+export function buildOdataQueryFilter(filters: Filter[]): string {
     var filterQuery = '\?\$filter\='
+    var queries = filters.map(x => createQuery(x.Field, x.FieldType, x.Comparator, x.Operator, x.AdressField))
+        .join(' and ')
+    return filterQuery + queries
+}
 
+function createQuery(field: string, type: fieldType, comparator: string, operator: operators, addressField?: string) {
+    var query = ''
     if (addressField) {
-        filterQuery += 'Addresses\/any(x\:'
+        query += 'Addresses\/any(x\:'
         field = 'x\/' + (addressField as string)
     }
 
     switch (type) {
         case fieldType.string:
-            filterQuery += buildStringQuery(field, comparator, operator)
+            query += buildStringQuery(field, comparator, operator)
             break;
         case fieldType.date:
-            filterQuery += buildDateQuery(field, comparator, operator)
+            query += buildDateQuery(field, comparator, operator)
             break;
         case fieldType.family:
-            filterQuery += buildFamilyQuery(field, comparator, operator)
+            query += buildFamilyQuery(field, comparator, operator)
             break;
     }
 
     if (addressField)
-        filterQuery += ')'
+        query += ')'
 
-    return filterQuery
+    return query
 
 }

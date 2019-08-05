@@ -1,6 +1,6 @@
 export type Adress = {
     Number: number
-    PostalCode: number
+    PostalCode: string
     City: string
     Street: string
     StreetType: TypesStreet
