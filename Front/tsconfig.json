@@ -1,0 +1,37 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "target": "es5",
+        "lib": [
+            "dom",
+            "es2015"
+        ],
+        "module": "es2015",
+        "moduleResolution": "node",
+        "outDir": "lib",
+        "baseUrl": "./dist",
+        "isolatedModules": false,
+        "experimentalDecorators": true,
+        "declaration": false,
+        "noImplicitAny": false,
+        "noImplicitThis": true,
+        "strictNullChecks": true,
+        "removeComments": true,
+        "sourceMap": true,
+        "suppressImplicitAnyIndexErrors": true,
+        "allowSyntheticDefaultImports": true,
+        "allowJs": true,
+        "typeRoots": [
+            "node_modules/@types"
+        ],
+        "paths": {
+            "react": [
+                "node_modules/@types/react"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules"
+    ],
+    "compileOnSave": false
+}
